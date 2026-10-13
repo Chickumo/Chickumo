@@ -4,132 +4,47 @@
 
 > So, I am doingggg nothing... and you shouldn't be here if u want to get a job🙂
 
-```cpp
+```assembly
 
-#include <iostream>
-#include <iomanip>
-#include <sstream>
-#include <string>
-#include <random>
-#include <thread>
-#include <chrono>
-#include <vector>
-#include <cstdint>
+BITS 64
+default rel
+%define SYS_WRITE 1
+%define SYS_EXIT 60
+%define STDOUT 1
+%define CIPHER 0xA7
+section .rodata
+payload:
+    db 0x05, 0xE4, 0xEC, 0x3C, 0xA6, 0xCC, 0xEC, 0x9C, 0xE4, 0x04, 0xA6, 0x3C, 0x8C, 0x8C, 0xCC, 0xA6, 0xC4, 0xEC, 0xFC, 0x8C
+    db 0xA6, 0xAC, 0xD4, 0xA6, 0xAC, 0x8C, 0x3C, 0x04, 0xE4, 0x8C, 0x04, 0xEC, 0xBC, 0xA6, 0x35, 0x8D, 0xAD, 0x85, 0xCD, 0x8D
+    db 0xA6, 0xB4, 0x8C, 0xBC, 0xAC, 0x0C, 0x3C, 0x8C, 0xA6, 0xDC, 0x94, 0xA6, 0x04, 0xE4, 0xEC, 0x3C, 0xA6, 0xBC, 0xDC, 0x84
+    db 0x8C, 0xC6, 0xA6, 0xB4, 0x0C, 0x04, 0xA6, 0x84, 0xDC, 0xD4, 0x9E, 0x04, 0xA6, 0x94, 0xDC, 0xDC, 0xC4, 0xA6, 0x6C, 0xDC
+    db 0x0C, 0x34, 0x3C, 0x8C, 0xC4, 0x94, 0xAE, 0xA6, 0xD5, 0xDC, 0x1C, 0xC6, 0xA6, 0x9C, 0xDC, 0xDC, 0xDC, 0xAE, 0xAE
+payload_len equ $ - payload
+section .bss
+scratch: resb payload_len
+section .text
+global _start
+_start:
+    lea rsi, [rel payload]
+    lea rdi, [rel scratch]
+    mov ecx, payload_len
+    xor r8d, r8d
+.decode:
+    mov al, [rsi + r8]
+    xor al, CIPHER
+    ror al, 3
+    mov [rdi + r8], al
+    inc r8
+    loop .decode
+    mov eax, SYS_WRITE
+    mov edi, STDOUT
+    lea rsi, [rel scratch]
+    mov edx, payload_len
+    syscall
+    xor edi, edi
+    test rax, rax
+    sets dil
+    mov eax, SYS_EXIT
+    syscall
 
-#define GFX_CYAN    "\033[36m"
-#define GFX_GREEN   "\033[32m"
-#define GFX_RED     "\033[31m"
-#define GFX_YELLOW  "\033[33m"
-#define GFX_PURPLE  "\033[35m"
-#define GFX_BOLD    "\033[1m"
-#define GFX_DIM     "\033[2m"
-#define GFX_RESET   "\033[0m"
-
-using namespace std;
-
-namespace Core {
-    namespace Memory {
-        static mt19937 engine{random_device{}()};
-
-        string resolveAddress() {
-            uniform_int_distribution<uint32_t> dist(0x10000000, 0x7FFFFFFF);
-
-            stringstream stream;
-            stream << "0x" << uppercase << hex << setw(8) << setfill('0') << dist(engine);
-            return stream.str();
-        }
-
-        struct MemoryBlock {
-            string identifier;
-            string address;
-            bool verified;
-        };
-
-        MemoryBlock allocate(const string& id) {
-            return {id, resolveAddress(), true};
-        }
-    }
-
-    namespace Diagnostics {
-
-        void delay(int ms) {this_thread::sleep_for(chrono::milliseconds(ms));}
-        void log(const string& label, const string& message, const char* color = GFX_CYAN) {
-            cout << color << "[" << label << "] " << GFX_RESET << message << endl;
-        }
-
-        void progress(const string& task) {
-            cout << GFX_DIM << task << " ";
-            for (int i = 0; i < 20; ++i) {
-                cout << GFX_GREEN << "█" << flush;
-                delay(35);
-            }
-
-            cout << GFX_RESET << " 100%" << endl;
-        }
-    }
-
-    class KernelInterface {
-    private:
-        vector<Memory::MemoryBlock> modules;
-
-    public:
-        void initialize() {
-            Diagnostics::log(
-                "BOOT", "Establishing virtual execution context..."
-            );
-            Diagnostics::delay(350);
-
-            vector<string> targets = {
-                "KERNEL_CORE",
-                "MEMORY_MANAGER",
-                "PROCESS_SCHEDULER",
-                "VIRTUAL_DISPATCHER",
-                "SYSTEM_INTERFACE"
-            };
-
-            for (const auto& target : targets) {
-                auto block = Memory::allocate(target);
-                modules.push_back(block);
-
-                Diagnostics::log("MAPPED", block.identifier + " -> " + block.address, GFX_PURPLE);
-                Diagnostics::delay(180);
-            }
-        }
-
-        void verify() {
-            Diagnostics::progress("Synchronizing execution pipeline");
-            Diagnostics::progress("Validating memory descriptors");
-            Diagnostics::progress("Resolving system dependencies");
-            Diagnostics::log(
-                "SUCCESS",
-                "All simulated subsystems operational.",
-                GFX_GREEN
-            );
-        }
-
-        void execute() {
-            cout << GFX_GREEN
-                 << "This might look like some advanced\n"
-                 << "kernel-level engineering...\n\n"
-                 << GFX_YELLOW
-                 << "But it's literally just a fancy way\n"
-                 << "of printing HELLO WORLD.\n\n"
-                 << GFX_BOLD << GFX_PURPLE
-                 << "HELLO WORLD!\n"
-                 << GFX_RESET;
-        }
-    };
-}
-
-int main() {
-    Core::KernelInterface system;
-
-    cout << GFX_BOLD << GFX_CYAN << "\n[ INITIALIZING SYSTEM CORE ]\n\n" << GFX_RESET;
-
-    system.initialize();
-    system.verify();
-    system.execute();
-
-    return 0;
-}
 ```
